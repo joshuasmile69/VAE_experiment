@@ -10,8 +10,6 @@ import model
 from data_manager import get_loader, make_spk_vector
 from itertools import combinations
 
-
-
 def load_pickle(path):
     with open(path, 'rb') as f:
         return pickle.load(f)
@@ -32,7 +30,6 @@ def update_parm(opt_list, loss):
     loss.backward()
     for opt in opt_list:
         opt.step()
-
 
 """
 VAE 1: Vanila
@@ -188,7 +185,6 @@ for epoch in range(epochs+1):
         z_mu, z_logvar, A_z = Enc(A_x, A_y)
         A2A_mu, A2A_logvar, A2A = Dec(A_z, A_y)
 
-
         rec_loss = -calc_gaussprob(A_x, A2A_mu, A2A_logvar)
         kl_loss = calc_kl_vae(z_mu, z_logvar)
 
@@ -237,8 +233,19 @@ for epoch in range(epochs+1):
     
     print("DEV:", end=' ')
     lm.print_stat()
-    end_time = time.time()
+    
+    # 로그를 파일에 저장
+    log_path = os.path.join(model_dir, 'train_log.txt')
+    with open(log_path, 'a') as log_file:
+        log_file.write("EPOCH: {}\n".format(epoch))
+        log_file.write("Train: rec_loss: {}, kl_loss: {}, total_loss: {}\n".format(
+            lm.get_stat("rec_loss"), lm.get_stat("kl_loss"), lm.get_stat("total_loss")
+        ))
+        log_file.write("DEV: rec_loss: {}, kl_loss: {}, total_loss: {}\n".format(
+            lm.get_stat("rec_loss"), lm.get_stat("kl_loss"), lm.get_stat("total_loss")
+        ))
 
+    end_time = time.time()
     total_time += (end_time - start_time)
 
     print(".....................")
@@ -251,7 +258,6 @@ for epoch in range(epochs+1):
             print("Nan at",epoch)
             break
 
-
         if min_dev_loss > cur_loss:
             min_dev_loss = cur_loss
             min_epoch = epoch
@@ -263,7 +269,7 @@ for epoch in range(epochs+1):
             for spk_id, Dec in Dec_group.items():
                 torch.save(Dec.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_"+spk_id+"_dec.pt"))
         else:
-            torch.save(Dec.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_dec.pt"))
+            torch.save(Dec.state_state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_dec.pt"))
     
 print("***********************************")
 print("Model name:",model_dir.split("/")[-1])
