@@ -176,6 +176,7 @@ VAE: spk_idxs => A_y
 spk_idx => make_spk_vector, make_spk_target
 """
 ########################
+
 def make_one_hot_vector(spk_idx, spk_num):
     vec = np.zeros(spk_num)
     vec[spk_idx] = 1.0
@@ -188,15 +189,13 @@ def expand_spk_vec(spk_vec, batch_len):
     return y
 
 def make_spk_vector(spk_idxs, spk_num, batch_len=0, is_MD=False):
-    A_y = []
     if is_MD:
         spk_idx = spk_idxs
         spk_vec = make_one_hot_vector(spk_idx, spk_num)
         A_y = expand_spk_vec(spk_vec, batch_len)
     else:
-        for spk_idx in spk_idxs:
-            spk_vec = make_one_hot_vector(spk_idx, spk_num)
-            A_y.append(spk_vec)
+        A_y = [make_one_hot_vector(spk_idx, spk_num) for spk_idx in spk_idxs]
+        A_y = np.array(A_y)  # 리스트를 numpy 배열로 변환
         A_y = torch.Tensor(A_y).float().to(device)
     return A_y
 
