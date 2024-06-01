@@ -43,6 +43,9 @@ class LogManager:
             summary += f"{stat_type}: {stat}\n"
         return summary
         '''
+import torch
+import numpy as np
+
 class LogManager:
     def __init__(self):
         self.log_book = dict()
@@ -81,16 +84,17 @@ class LogManager:
                 print(stat_type, ":", stat, end=' / ')
         print(" ")
 
-    def save_stat(self, filepath):
-        with open(filepath, 'a') as f:  # 'a' 모드로 파일을 열어 내용을 추가
-            f.write(self.get_stat_summary())
-
     def get_stat_summary(self):
         summary = ""
         for stat_type, values in self.log_book.items():
             stat = self.get_stat(stat_type)
             summary += f"{stat_type}: {stat}\n"
         return summary
+
+    def save_to_file(self, file_path):
+        with open(file_path, 'w') as f:
+            f.write(self.get_stat_summary())
+
 
     
 
