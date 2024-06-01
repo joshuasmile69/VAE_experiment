@@ -277,5 +277,3 @@ if args.model_type == "MD":
         os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_"+spk_id+"_dec.pt")+" "+os.path.join(model_dir,"final_"+spk_id+"_dec.pt"))
 else:
     os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_dec.pt")+" "+os.path.join(model_dir,"final_dec.pt"))
-
-
