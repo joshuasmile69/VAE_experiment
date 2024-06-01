@@ -113,7 +113,7 @@ else:
     print(Enc)
     print(Dec)
 
-epochs = 100
+epochs = 1000
 print("Training Settings")
 print("LR", lr)
 print("Number of epochs", epochs)
@@ -153,4 +153,89 @@ for epoch in range(epochs + 1):
         A_y = make_spk_vector(spk_idx, TOTAL_SPK_NUM, batch_len, is_MD)
         
         z_mu, z_logvar, A_z = Enc(A_x, A_y)
-     
+        A2A_mu, A2A_logvar, A2A = Dec(A_z, A_y)
+
+        rec_loss = -calc_gaussprob(A_x, A2A_mu, A2A_logvar)
+        kl_loss = calc_kl_vae(z_mu, z_logvar)
+
+        total_loss = coef["rec"] * rec_loss + coef["kl"] * kl_loss
+        update_parm([Enc_opt, Dec_opt], total_loss)
+
+        lm.add_torch_stat("rec_loss", rec_loss)
+        lm.add_torch_stat("kl_loss", kl_loss)
+        lm.add_torch_stat("total_loss", total_loss)
+
+    print("Train:", end=' ')
+    lm.print_stat()
+
+    lm.init_stat()
+    Enc.eval()
+    if is_MD:
+        for dec in Dec_group.values():
+            dec.eval()
+    else:
+        Dec.eval()
+    
+    dev_loader = get_loader(SP_DICT_DEV, 1, n_frames=n_frames, shuffle=False, is_MD=is_MD)
+
+    for A_x, spk_idx in dev_loader:
+        if is_MD:
+            spk_id = SPK_LIST[spk_idx]
+            Dec = Dec_group[spk_id]
+        
+        batch_len = A_x.size()[0]
+        A_y = make_spk_vector(spk_idx, TOTAL_SPK_NUM, batch_len, is_MD)
+        
+        with torch.no_grad():
+            z_mu, z_logvar, A_z = Enc(A_x, A_y)
+            A2A_mu, A2A_logvar, A2A = Dec(A_z, A_y)
+
+            rec_loss = -calc_gaussprob(A_x, A2A_mu, A2A_logvar)
+            kl_loss = calc_kl_vae(z_mu, z_logvar)
+
+            total_loss = coef["rec"] * rec_loss + coef["kl"] * kl_loss
+        
+        lm.add_torch_stat("rec_loss", rec_loss)
+        lm.add_torch_stat("kl_loss", kl_loss)
+        lm.add_torch_stat("total_loss", total_loss)
+    
+    print("DEV:", end=' ')
+    lm.print_stat()
+    end_time = time.time()
+
+    total_time += (end_time - start_time)
+
+    print(".....................")
+
+    if epoch % 10 == 0:
+        cur_loss = lm.get_stat("total_loss")
+        if np.isnan(cur_loss):
+            print("Nan at", epoch)
+            break
+
+        if min_dev_loss > cur_loss:
+            min_dev_loss = cur_loss
+            min_epoch = epoch
+
+        torch.save(Enc.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_enc.pt"))
+
+        if args.model_type == "MD":
+            for spk_id, Dec in Dec_group.items():
+                torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_" + spk_id + "_dec.pt"))
+        else:
+            torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_dec.pt"))
+        
+        lm.save_to_file(os.path.join(model_dir, "log.txt"))
+
+print("***********************************")
+print("Model name:", model_dir.split("/")[-1])
+print("TIME PER EPOCH:", total_time / (epochs + 1))
+print("Final Epoch:", min_epoch, min_dev_loss)
+print("***********************************")
+
+os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_enc.pt") + " " + os.path.join(model_dir, "final_enc.pt"))
+if args.model_type == "MD":
+    for spk_id, Dec in Dec_group.items():
+        os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_" + spk_id + "_dec.pt") + " " + os.path.join(model_dir, "final_" + spk_id + "_dec.pt"))
+else:
+    os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_dec.pt") + " " + os.path.join(model_dir, "final_dec.pt"))
