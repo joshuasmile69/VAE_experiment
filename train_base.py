@@ -1,14 +1,16 @@
+#!/usr/bin/env python3
+# coding=utf8
 import os, sys
 import argparse
 import numpy as np
 import time
 import torch
 import torch.optim as optim
-from loss import LogManager, calc_gaussprob, calc_kl_vae
 import pickle
 import model
 from data_manager import get_loader, make_spk_vector
 from itertools import combinations
+from loss import LogManager, calc_gaussprob, calc_kl_vae
 
 def load_pickle(path):
     with open(path, 'rb') as f:
@@ -31,24 +33,6 @@ def update_parm(opt_list, loss):
     for opt in opt_list:
         opt.step()
 
-"""
-VAE 1: Vanila
-VAE 2: Decoder Speaker vector
-VAE 3: All Speaker vector
-MD: Multi Decoder
-
-SI: Minimize speaker info (cross entropy) of latent
-I: Minimize speaker entropy of latent
-
-LI: Maximize ppg info of latent => ALC: ppg loss in converted x
-AC: speaker loss in converted x
-
-SC: l1(latent - cycle latent)
-CC: cycle loss
-
-GAN : discriminator
-"""
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_type', type=str)
 parser.add_argument('--SI', type=int, default=0)
@@ -67,11 +51,10 @@ args = parser.parse_args()
 assert args.model_type in ["VAE1", "VAE2", "VAE3", "MD"]
 
 torch.manual_seed(args.seed)
-torch.backends.cudnn.deterministic=True
-torch.backends.cudnn.benchmark=False
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 np.random.seed(args.seed)
 
-# Data load
 SPK_LIST = ['VCC2SF1','VCC2SF2','VCC2SM1','VCC2SM2']
 TOTAL_SPK_NUM = len(SPK_LIST)
 
@@ -91,43 +74,36 @@ for spk_id in SPK_LIST:
             file_path = os.path.join("data", "dev", spk_id, file_id)
             coded_sp, f0, ap = load_pickle(file_path)
             sps.append(coded_sp)
-    SP_DICT_DEV[spk_id]=sps
+    SP_DICT_DEV[spk_id] = sps
 
-# Model initilaization
 model_dir = args.model_dir
-
 lr = 0.001
-coef={"rec": 1.0, "adv": 0.0, "kl": 0.1}
+coef = {"rec": 1.0, "adv": 0.0, "kl": 0.1}
 
 print(model_dir)
-os.makedirs(model_dir+"/parm", exist_ok=True)
+os.makedirs(model_dir + "/parm", exist_ok=True)
 
-latent_dim=8
-
-is_MD=True if args.model_type == "MD" else False
+latent_dim = 8
+is_MD = True if args.model_type == "MD" else False
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#device = torch.device('cpu') # train use cpu
 
-## Encoder
 Enc = model.Encoder(style_dim=4, latent_dim=latent_dim, vae_type=args.model_type)
 Enc = Enc.to(device)
 Enc_opt = optim.Adam(Enc.parameters(), lr=lr)
 Enc_sch = optim.lr_scheduler.ExponentialLR(Enc_opt, 0.9)
 
 print(calc_parm_num(Enc))
-## Decoder
+
 if is_MD:    
-    # Enc.load_state_dict(torch.load("model/VAE3/final_enc.pt"))
-    Dec_group=dict()
-    Dec_opt_group=dict()
-    Dec_sch_group=dict()
+    Dec_group = dict()
+    Dec_opt_group = dict()
+    Dec_sch_group = dict()
     for spk_id in SPK_LIST:
         Dec_group[spk_id] = model.Decoder(style_dim=4, latent_dim=latent_dim, vae_type=args.model_type)
         Dec_group[spk_id] = Dec_group[spk_id].to(device) 
         Dec_opt_group[spk_id] = optim.Adam(Dec_group[spk_id].parameters(), lr=lr)
         Dec_sch_group[spk_id] = optim.lr_scheduler.ExponentialLR(Dec_opt_group[spk_id], 0.9)
-        
 else:
     Dec = model.Decoder(style_dim=4, latent_dim=latent_dim, vae_type=args.model_type)
     Dec = Dec.to(device)
@@ -137,32 +113,26 @@ else:
     print(Enc)
     print(Dec)
 
-# 8 16
-# (0-499) (500-999)
-epochs = 100
+epochs = 1000
 print("Training Settings")
-print("LR",lr)
-print("Number of epochs",epochs)
+print("LR", lr)
+print("Number of epochs", epochs)
 print(".....................")
 lm = LogManager()
 lm.alloc_stat_type_list(["rec_loss", "kl_loss", "total_loss"])
 
 total_time = 0
-min_dev_loss = 9999999999999999
+min_dev_loss = float('inf')
 min_epoch = 0
 d_epoch = 1
 
-# print(Enc)
-# print(Dec)
-
 batch_size = 8
 n_frames = 128
-for epoch in range(epochs+1):
+for epoch in range(epochs + 1):
     print("EPOCH:", epoch)
     lm.init_stat()  
 
     start_time = time.time()
-    # VAE Training
     Enc.train()
     if is_MD:
         for dec in Dec_group.values():
@@ -191,7 +161,6 @@ for epoch in range(epochs+1):
         total_loss = coef["rec"] * rec_loss + coef["kl"] * kl_loss
         update_parm([Enc_opt, Dec_opt], total_loss)
 
-        # write to log
         lm.add_torch_stat("rec_loss", rec_loss)
         lm.add_torch_stat("kl_loss", kl_loss)
         lm.add_torch_stat("total_loss", total_loss)
@@ -199,7 +168,6 @@ for epoch in range(epochs+1):
     print("Train:", end=' ')
     lm.print_stat()
 
-    # VAE Evaluation
     lm.init_stat()
     Enc.eval()
     if is_MD:
@@ -233,53 +201,41 @@ for epoch in range(epochs+1):
     
     print("DEV:", end=' ')
     lm.print_stat()
-    
-    # 로그를 파일에 저장
-    log_path = os.path.join(model_dir, 'train_log.txt')
-    with open(log_path, 'a') as log_file:
-        log_file.write("EPOCH: {}\n".format(epoch))
-        log_file.write("Train: rec_loss: {}, kl_loss: {}, total_loss: {}\n".format(
-            lm.get_stat("rec_loss"), lm.get_stat("kl_loss"), lm.get_stat("total_loss")
-        ))
-        log_file.write("DEV: rec_loss: {}, kl_loss: {}, total_loss: {}\n".format(
-            lm.get_stat("rec_loss"), lm.get_stat("kl_loss"), lm.get_stat("total_loss")
-        ))
-
     end_time = time.time()
+
     total_time += (end_time - start_time)
 
     print(".....................")
-    # Enc_sch.step()
-    # Dec_sch.step()
+
     if epoch % 10 == 0:
-        ### check min loss
         cur_loss = lm.get_stat("total_loss")
         if np.isnan(cur_loss):
-            print("Nan at",epoch)
+            print("Nan at", epoch)
             break
 
         if min_dev_loss > cur_loss:
             min_dev_loss = cur_loss
             min_epoch = epoch
 
-        ### Parmaeter save
-        torch.save(Enc.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_enc.pt"))
+        torch.save(Enc.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_enc.pt"))
 
         if args.model_type == "MD":
             for spk_id, Dec in Dec_group.items():
-                torch.save(Dec.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_"+spk_id+"_dec.pt"))
+                torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_" + spk_id + "_dec.pt"))
         else:
-            torch.save(Dec.state_state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_dec.pt"))
-    
+            torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_dec.pt"))
+        
+        lm.save_to_file(os.path.join(model_dir, "log.txt"))
+
 print("***********************************")
-print("Model name:",model_dir.split("/")[-1])
-print("TIME PER EPOCH:",total_time/(epochs+1))
-print("Final Epoch:",min_epoch, min_dev_loss)
+print("Model name:", model_dir.split("/")[-1])
+print("TIME PER EPOCH:", total_time / (epochs + 1))
+print("Final Epoch:", min_epoch, min_dev_loss)
 print("***********************************")
-# min_epoch=epochs
-os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_enc.pt")+" "+os.path.join(model_dir,"final_enc.pt"))
+
+os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_enc.pt") + " " + os.path.join(model_dir, "final_enc.pt"))
 if args.model_type == "MD":
     for spk_id, Dec in Dec_group.items():
-        os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_"+spk_id+"_dec.pt")+" "+os.path.join(model_dir,"final_"+spk_id+"_dec.pt"))
+        os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_" + spk_id + "_dec.pt") + " " + os.path.join(model_dir, "final_" + spk_id + "_dec.pt"))
 else:
-    os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_dec.pt")+" "+os.path.join(model_dir,"final_dec.pt"))
+    os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_dec.pt") + " " + os.path.join(model_dir, "final_dec.pt"))
