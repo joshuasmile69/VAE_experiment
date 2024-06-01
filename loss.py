@@ -36,6 +36,12 @@ class LogManager:
             print(stat_type,":",stat, end=' / ')
         print(" ")
 
+    def get_stat_summary(self):
+        summary = ""
+        for stat_type, values in self.log_book.items():
+            stat = self.get_stat(stat_type)
+            summary += f"{stat_type}: {stat}\n"
+        return summary
     
 
 
