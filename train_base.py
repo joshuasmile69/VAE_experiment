@@ -142,7 +142,7 @@ else:
 
 # 8 16
 # (0-499) (500-999)
-epochs = 1000
+epochs = 100
 print("Training Settings")
 print("LR",lr)
 print("Number of epochs",epochs)
