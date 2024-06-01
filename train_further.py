@@ -221,6 +221,8 @@ min_epoch = 0
 d_epoch = 1
 
 if is_pretrain:
+    log_path = "/content/VAE_experiment/VAE_experiment/logs/add_train_log.txt"
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
     lm = LogManager()
     lm.alloc_stat_type_list(["train_loss", "train_acc", "dev_loss", "dev_acc"])
 
@@ -247,7 +249,7 @@ if is_pretrain:
                 lm.add_torch_stat("train_loss", spk_loss)
                 lm.add_torch_stat("train_acc", 1.0 - spk_err)
 
-                
+            lm.save_stat(log_path)    
             # Dev
             AC.eval()
             dev_loader = dm.feat_loader_single(SP_DICT_DEV, batch_size, shuffle=False)
@@ -260,7 +262,7 @@ if is_pretrain:
 
                 lm.add_torch_stat("dev_loss", spk_loss)
                 lm.add_torch_stat("dev_acc", 1.0 - spk_err)
-            
+            lm.save_stat(log_path)
             lm.print_stat()
         AC.eval()
     
