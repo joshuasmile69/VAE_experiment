@@ -113,7 +113,7 @@ else:
     print(Enc)
     print(Dec)
 
-epochs = 100
+epochs = 500
 print("Training Settings")
 print("LR", lr)
 print("Number of epochs", epochs)
