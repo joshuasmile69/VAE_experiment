@@ -42,7 +42,7 @@ class LogManager:
             stat = self.get_stat(stat_type)
             summary += f"{stat_type}: {stat}\n"
         return summary
-        '''
+
 import torch
 import numpy as np
 
