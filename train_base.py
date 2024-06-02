@@ -127,8 +127,6 @@ min_epoch = 0
 d_epoch = 1
 
 log_file_path = os.path.join(model_dir, "log.txt")
-with open(log_file_path, 'w') as log_file:
-    log_file.write("epoch,Train_rec_loss,Train_kl_loss,Train_total_loss,Dev_rec_loss,Dev_kl_loss,Dev_total_loss\n")
 
 batch_size = 8
 n_frames = 128
@@ -220,7 +218,8 @@ for epoch in range(epochs + 1):
     print(".....................")
 
     with open(log_file_path, 'a') as log_file:
-        log_file.write(f"{epoch},{train_rec_loss},{train_kl_loss},{train_total_loss},{dev_rec_loss},{dev_kl_loss},{dev_total_loss}\n")
+        log_file.write(f"{epoch},Train,{train_total_loss}\n")
+        log_file.write(f"{epoch},DEV,{dev_total_loss}\n")
 
     if epoch % 10 == 0:
         cur_loss = lm.get_stat("total_loss")
@@ -247,7 +246,7 @@ print("Final Epoch:", min_epoch, min_dev_loss)
 print("***********************************")
 
 os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_enc.pt") + " " + os.path.join(model_dir, "final_enc.pt"))
-if args.model_type == "MD":
+if is_MD:
     for spk_id, Dec in Dec_group.items():
         os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_" + spk_id + "_dec.pt") + " " + os.path.join(model_dir, "final_" + spk_id + "_dec.pt"))
 else:
