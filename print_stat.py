@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-stat_dir = "/content/VAE_experiment/VAE_experiment/stats"
+stat_dir = "/content/VAE_experiment/stats"
 trial_range = 5
 
 def calc_stat(stat_dir, stat_name, trial_range):
