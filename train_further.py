@@ -185,7 +185,7 @@ if is_pretrain:
     lm.alloc_stat_type_list(["train_loss", "train_acc", "dev_loss", "dev_acc"])
 
     if args.AC:
-        pretrain_epochs = 500
+        pretrain_epochs = 100
         batch_size = 8
         print("Train AC")
         for epoch in range(pretrain_epochs):
@@ -228,7 +228,7 @@ lm = LogManager()
 lm.alloc_stat_type_list(["rec_loss", "kl_loss", "CC_loss", "SI_loss", 
     "I_loss", "LI_loss", "AC_loss", "SC_loss", "SI_D", "SI_err", "LI_D", "LI_err", "total_loss"])
 
-epochs = 500
+epochs = 100
 with open(log_file_path, 'w') as log_file:
     log_file.write("epoch,type,total_loss\n")
 
