@@ -1,15 +1,21 @@
 #!/bin/bash
 
-log_path=add train log.txt
-out_dir=graph
-
+log_dir="/content/VAE_experiment/model"
+out_dir="/content/VAE_experiment/graph"
 mkdir -p $out_dir
 
-#for mtype in VAE1 VAE2 VAE3 MD; do
-for mtype in VAE3; do
-    python3 print_graph.py --log_path=$log_path --model_path=model/${mtype} --out_path=${out_dir}/${mtype}.csv
-done
+# Base model log to graph
+if [ -f "$log_dir/VAE3/log.txt" ]; then
+    python3 /content/VAE_experiment/print_graph.py --log_path=$log_dir/VAE3/log.txt --out_path=$out_dir/VAE3.png
+else
+    echo "Log file for VAE3 not found"
+fi
 
-# for mtype in SI I LI D1 D2 AC CC SC HCP2 HCP3 HCP4 DEC1 DEC2 DEC3 DEC4 more; do
-#     python3 print_graph.py --log_path=$log_path --model_path=model/VAE3_${mtype}_1 --out_path=${out_dir}/${mtype}.csv
-# done
+# Further experiments log to graph
+for exp in SI I LI AC SC CC; do
+    if [ -f "$log_dir/VAE3_$exp/log.txt" ]; then
+        python3 /content/VAE_experiment/print_graph.py --log_path=$log_dir/VAE3_$exp/log.txt --out_path=$out_dir/VAE3_$exp.png
+    else
+        echo "Log file for VAE3_$exp not found"
+    fi
+done
