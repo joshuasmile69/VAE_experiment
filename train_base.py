@@ -142,7 +142,7 @@ else:
 
 # 8 16
 # (0-499) (500-999)
-epochs = 1000
+epochs = 500
 print("Training Settings")
 print("LR",lr)
 print("Number of epochs",epochs)
@@ -151,14 +151,14 @@ lm = LogManager()
 lm.alloc_stat_type_list(["rec_loss", "kl_loss", "total_loss"])
 
 total_time = 0
-min_dev_loss = 9999999999999999
+min_dev_loss = float('inf')
 min_epoch = 0
 d_epoch = 1
 
 # print(Enc)
 # print(Dec)
 
-batch_size = 8
+batch_size = 6
 n_frames = 128
 for epoch in range(epochs+1):
     print("EPOCH:", epoch)
