@@ -4,18 +4,17 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--log_path', type=str)
-parser.add_argument('--model_path', type=str)
 parser.add_argument('--out_path', type=str)
 args = parser.parse_args()
 
 log_path = args.log_path
-model_path = args.model_path
 out_path = args.out_path
 
 train_loss_list = []
 dev_loss_list = []
 
 with open(log_path, 'r') as f:
+    next(f)  # Skip the header line
     for line in f:
         epoch, mtype, total_loss = line.strip().split(',')
         total_loss = float(total_loss)
