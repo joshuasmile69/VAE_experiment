@@ -42,14 +42,14 @@ def set_DEC(DEC, mode, is_MD=False):
     assert mode in ['train', 'eval']
     if is_MD:
         for dec in DEC.values():
-            if mode=='train':
+            if mode == 'train':
                 dec.train()
-            if mode=="eval":
+            if mode == "eval":
                 dec.eval()
     else:
-        if mode=='train':
+        if mode == 'train':
             DEC.train()
-        if mode=="eval":
+        if mode == "eval":
             DEC.eval()
 
 parser = argparse.ArgumentParser()
@@ -69,11 +69,11 @@ parser.add_argument('--lr', type=float, default=0)
 args = parser.parse_args()
 assert args.model_type in ["VAE1", "VAE2", "VAE3", "MD"]
 
-is_MD=True if args.model_type=="MD" else False
+is_MD = True if args.model_type == "MD" else False
 
 torch.manual_seed(args.seed)
-torch.backends.cudnn.deterministic=True
-torch.backends.cudnn.benchmark=False
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 np.random.seed(args.seed)
 
 if args.conf != "":
@@ -109,30 +109,30 @@ for spk_id in SPK_LIST:
             file_path = os.path.join("data", "dev", spk_id, file_id)
             coded_sp, f0, ap = load_pickle(file_path)
             sps.append(coded_sp)
-    SP_DICT_DEV[spk_id]=sps 
+    SP_DICT_DEV[spk_id] = sps 
 
-# Model initilaization
+# Model initialization
 model_dir = args.model_dir
 vae_lr = 0.001
 c_lr = 0.000025
-coef={ 
+coef = { 
     "rec": 1.0, "cyc": 1.0, "si": 0.1, "i": 0.1, "li": 1.0, "ac": 1.0, "sc": 0.1, "kl": 0.1
 }
 
 print(model_dir)
-os.makedirs(model_dir+"/parm", exist_ok=True)
+os.makedirs(model_dir + "/parm", exist_ok=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-latent_dim=8
+latent_dim = 8
 ## Encoder
 Enc = model.Encoder(style_dim=4, latent_dim=latent_dim, vae_type=args.model_type)
 Enc = Enc.to(device)
 Enc_opt = optim.Adam(Enc.parameters(), lr=vae_lr)
 
 if is_MD:    
-    Dec=dict()
-    Dec_opt=dict()
+    Dec = dict()
+    Dec_opt = dict()
     for spk_id in SPK_LIST:
         Dec[spk_id] = model.Decoder(style_dim=4, latent_dim=latent_dim, vae_type=args.model_type)
         Dec[spk_id] = Dec[spk_id].to(device)
@@ -142,12 +142,12 @@ else:
     Dec = Dec.to(device)
     Dec_opt = optim.Adam(Dec.parameters(), lr=vae_lr)
 
-torch.save(Enc.state_dict(), os.path.join(model_dir,"final_enc.pt"))
+torch.save(Enc.state_dict(), os.path.join(model_dir, "final_enc.pt"))
 if is_MD:
     for spk_id, cur_dec in Dec.items():
-        torch.save(cur_dec.state_dict(), os.path.join(model_dir,"final_"+spk_id+"_dec.pt"))
+        torch.save(cur_dec.state_dict(), os.path.join(model_dir, "final_" + spk_id + "_dec.pt"))
 else:
-    torch.save(Dec.state_dict(), os.path.join(model_dir,"final_dec.pt"))
+    torch.save(Dec.state_dict(), os.path.join(model_dir, "final_dec.pt"))
 
 ## Classifier
 is_conversion = True if (args.AC or args.SC or args.CC or args.GAN) else False
@@ -177,6 +177,8 @@ total_time = 0
 min_dev_loss = float('inf')
 min_epoch = 0
 d_epoch = 1
+
+log_file_path = os.path.join(model_dir, "log.txt")
 
 if is_pretrain:
     lm = LogManager()
@@ -226,8 +228,11 @@ lm = LogManager()
 lm.alloc_stat_type_list(["rec_loss", "kl_loss", "CC_loss", "SI_loss", 
     "I_loss", "LI_loss", "AC_loss", "SC_loss", "SI_D", "SI_err", "LI_D", "LI_err", "total_loss"])
 
-epochs=100
-for epoch in range(epochs+1):
+epochs = 100
+with open(log_file_path, 'w') as log_file:
+    log_file.write("epoch,type,total_loss\n")
+
+for epoch in range(epochs + 1):
     print("EPOCH:", epoch)
     
     batch_size = 8
@@ -250,7 +255,7 @@ for epoch in range(epochs+1):
             for (x), spk_idxs in adv_loader:
                 batch_len = x.size()[0]
                 spk_labs = dm.make_spk_target(spk_idxs, batch_len, is_MD=False)
-                y=dm.make_spk_vector(spk_idxs, TOTAL_SPK_NUM, batch_len, is_MD=False)
+                y = dm.make_spk_vector(spk_idxs, TOTAL_SPK_NUM, batch_len, is_MD=False)
 
                 total_loss = 0.0
                 mu, logvar, z = Enc(x, y)
@@ -387,6 +392,10 @@ for epoch in range(epochs+1):
             lm.add_torch_stat("SC_loss", sc_loss)
         lm.add_torch_stat("total_loss", total_loss)
 
+    train_rec_loss = lm.get_stat("rec_loss")
+    train_kl_loss = lm.get_stat("kl_loss")
+    train_total_loss = lm.get_stat("total_loss")
+
     print("Train:", end=' ')
     lm.print_stat()
 
@@ -456,6 +465,10 @@ for epoch in range(epochs+1):
                             cyc_loss += -calc_gaussprob(A_x, A2B2A_mu, A2B2A_logvar)
                             kl_loss += calc_kl_vae(A2B_z_mu, A2B_z_logvar)
 
+            dev_rec_loss = lm.get_stat("rec_loss")
+            dev_kl_loss = lm.get_stat("kl_loss")
+            dev_total_loss = lm.get_stat("total_loss")
+
             # write to log
             lm.add_torch_stat("rec_loss", rec_loss)
             lm.add_torch_stat("kl_loss", kl_loss)
@@ -480,13 +493,17 @@ for epoch in range(epochs+1):
     total_time += (end_time - start_time)
 
     print(".....................")
-    
+
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(f"{epoch},Train,{train_total_loss}\n")
+        log_file.write(f"{epoch},DEV,{dev_total_loss}\n")
+
     if epoch % 10 == 0:
         ### check min loss
         cur_loss = lm.get_stat("total_loss")
         
         if np.isnan(cur_loss):
-            print("Nan at",epoch)
+            print("Nan at", epoch)
             break
 
         if min_dev_loss > cur_loss:
@@ -494,15 +511,12 @@ for epoch in range(epochs+1):
             min_epoch = epoch
 
         ### Parameter save
-        torch.save(Enc.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_enc.pt"))
+        torch.save(Enc.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_enc.pt"))
         if is_MD:
             for spk_id, cur_dec in Dec.items():
-                torch.save(cur_dec.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_"+spk_id+"_dec.pt"))
+                torch.save(cur_dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_" + spk_id + "_dec.pt"))
         else:
-            torch.save(Dec.state_dict(), os.path.join(model_dir,"parm",str(epoch)+"_dec.pt"))
-        
-        # Save log to file
-        lm.save_to_file(os.path.join(model_dir, "log.txt"))
+            torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_dec.pt"))
 
 print("***********************************")
 print("Model name:", model_dir.split("/")[-1])
@@ -510,9 +524,9 @@ print("TIME PER EPOCH:", total_time / (epochs + 1))
 print("Final Epoch:", min_epoch, min_dev_loss)
 print("***********************************")
 
-os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_enc.pt")+" "+os.path.join(model_dir,"final_enc.pt"))
+os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_enc.pt") + " " + os.path.join(model_dir, "final_enc.pt"))
 if is_MD:
     for spk_id, cur_dec in Dec.items():
-        os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_"+spk_id+"_dec.pt")+" "+os.path.join(model_dir,"final_"+spk_id+"_dec.pt"))
+        os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_" + spk_id + "_dec.pt") + " " + os.path.join(model_dir, "final_" + spk_id + "_dec.pt"))
 else:
-    os.system("cp "+os.path.join(model_dir,"parm",str(min_epoch)+"_dec.pt")+" "+os.path.join(model_dir,"final_dec.pt"))
+    os.system("cp " + os.path.join(model_dir, "parm", str(min_epoch) + "_dec.pt") + " " + os.path.join(model_dir, "final_dec.pt"))
