@@ -216,7 +216,7 @@ if args.AC:
 # (0-499) (500-999)
 total_time = 0
 
-min_dev_loss = 9999999999999999
+min_dev_loss = float('inf')
 min_epoch = 0
 d_epoch = 1
 
@@ -225,8 +225,8 @@ if is_pretrain:
     lm.alloc_stat_type_list(["train_loss", "train_acc", "dev_loss", "dev_acc"])
 
     if args.AC:
-        pretrain_epochs = 1000
-        batch_size = 8
+        pretrain_epochs = 500
+        batch_size = 6
         print("Train AC")
         for epoch in range(pretrain_epochs):
             lm.init_stat()  
@@ -269,11 +269,11 @@ lm = LogManager()
 lm.alloc_stat_type_list(["rec_loss", "kl_loss", "CC_loss", "SI_loss", 
     "I_loss", "LI_loss", "AC_loss", "SC_loss", "SI_D", "SI_err", "LI_D", "LI_err", "total_loss"])
 
-epochs=1000
+epochs=500
 for epoch in range(epochs+1):
     print("EPOCH:", epoch)
     
-    batch_size = 8
+    batch_size = 6
     
     lm.init_stat()  
 
