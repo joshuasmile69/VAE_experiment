@@ -126,6 +126,10 @@ min_dev_loss = float('inf')
 min_epoch = 0
 d_epoch = 1
 
+log_file_path = os.path.join(model_dir, "log.txt")
+with open(log_file_path, 'w') as log_file:
+    log_file.write("epoch,Train_rec_loss,Train_kl_loss,Train_total_loss,Dev_rec_loss,Dev_kl_loss,Dev_total_loss\n")
+
 batch_size = 8
 n_frames = 128
 for epoch in range(epochs + 1):
@@ -165,6 +169,10 @@ for epoch in range(epochs + 1):
         lm.add_torch_stat("kl_loss", kl_loss)
         lm.add_torch_stat("total_loss", total_loss)
 
+    train_rec_loss = lm.get_stat("rec_loss")
+    train_kl_loss = lm.get_stat("kl_loss")
+    train_total_loss = lm.get_stat("total_loss")
+
     print("Train:", end=' ')
     lm.print_stat()
 
@@ -199,6 +207,10 @@ for epoch in range(epochs + 1):
         lm.add_torch_stat("kl_loss", kl_loss)
         lm.add_torch_stat("total_loss", total_loss)
     
+    dev_rec_loss = lm.get_stat("rec_loss")
+    dev_kl_loss = lm.get_stat("kl_loss")
+    dev_total_loss = lm.get_stat("total_loss")
+
     print("DEV:", end=' ')
     lm.print_stat()
     end_time = time.time()
@@ -206,6 +218,9 @@ for epoch in range(epochs + 1):
     total_time += (end_time - start_time)
 
     print(".....................")
+
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(f"{epoch},{train_rec_loss},{train_kl_loss},{train_total_loss},{dev_rec_loss},{dev_kl_loss},{dev_total_loss}\n")
 
     if epoch % 10 == 0:
         cur_loss = lm.get_stat("total_loss")
@@ -224,8 +239,6 @@ for epoch in range(epochs + 1):
                 torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_" + spk_id + "_dec.pt"))
         else:
             torch.save(Dec.state_dict(), os.path.join(model_dir, "parm", str(epoch) + "_dec.pt"))
-        
-        lm.save_to_file(os.path.join(model_dir, "log.txt"))
 
 print("***********************************")
 print("Model name:", model_dir.split("/")[-1])
